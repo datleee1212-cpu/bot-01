@@ -1,0 +1,6 @@
+# Nguồn tin để "đăng lại tin". Chạy: python -m bot rss
+# Bot chỉ tạo BẢN NHÁP (status: draft) gồm tiêu đề + link nguồn; bạn viết tóm tắt rồi duyệt.
+feeds: []
+#  - url: https://vnexpress.net/rss/tin-moi-nhat.rss
+#    platforms: [facebook, x]
+#    max_items: 5

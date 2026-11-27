@@ -1,0 +1,7 @@
+requests>=2.31
+requests-oauthlib>=1.3
+PyYAML>=6.0
+python-dotenv>=1.0
+feedparser>=6.0
+# Tuỳ chọn: chỉ cần khi dùng kho S3/Cloudflare R2 để tạo link công khai cho ảnh Instagram
+# boto3>=1.34
