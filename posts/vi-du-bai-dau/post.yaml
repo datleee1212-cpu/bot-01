@@ -1,0 +1,11 @@
+# Mỗi bài là một thư mục trong posts/. Đặt ảnh/video cùng thư mục với file này.
+status: draft            # draft = chưa đăng; đổi thành approved để bot đăng
+publish_at: 2026-12-01T09:00:00+07:00   # giờ đăng (bỏ +07:00 thì dùng TIMEZONE trong .env)
+platforms: [facebook, instagram, x, tiktok]
+text: |
+  Xin chào! Đây là bài đăng đầu tiên từ bot.
+link: https://example.com      # tuỳ chọn
+media: []                      # ví dụ: [anh1.jpg, anh2.jpg] hoặc [video.mp4]
+
+# Tuỳ chọn: nội dung riêng cho từng nền tảng
+# text_x: Bản ngắn cho X (tối đa 280 ký tự)
