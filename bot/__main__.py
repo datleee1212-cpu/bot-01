@@ -5,11 +5,14 @@
   python -m bot run               Đăng các bài đã đến giờ
   python -m bot loop              Chạy liên tục, kiểm tra mỗi 5 phút
   python -m bot rss               Lấy tin từ config/feeds.yaml thành bản nháp
-  python -m bot tiktok-login      Lấy refresh token TikTok lần đầu
+  python -m bot login x           Mở trình duyệt để bạn đăng nhập (facebook, instagram, x, tiktok)
+  python -m bot tiktok-login      Lấy refresh token TikTok lần đầu (chỉ khi dùng API)
 """
 from __future__ import annotations
 
 import argparse
+import os
+import random
 import secrets
 import time
 import traceback
@@ -19,7 +22,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from . import config, rss
+from . import config, pacing, rss
 from .store import State, due_jobs, load_posts
 
 
@@ -37,7 +40,7 @@ def cmd_list(_args) -> None:
 
 
 def cmd_run(args) -> int:
-    from .platforms import PUBLISHERS
+    from .platforms import get_publisher, method_for
 
     state = State()
     jobs = due_jobs(load_posts(), state, now())
@@ -46,17 +49,28 @@ def cmd_run(args) -> int:
     if not jobs:
         print("Không có bài nào cần đăng.")
         return 0
-    publishers, failures = {}, 0
+    failures, blocked, browser_used = 0, set(), False
     for post, platform in jobs:
-        label = f"{post.id} → {platform}"
+        label = f"{post.id} → {platform} ({method_for(platform)})"
+        if platform in blocked:
+            continue
+        reason = pacing.why_wait(state, platform, now())
+        if reason:
+            print(f"[hoãn] {label}: {reason}")
+            blocked.add(platform)
+            continue
         if args.dry_run:
             media = ", ".join(m.name for m in post.media) or "không có media"
             print(f"[thử] {label}: {post.text_for(platform)[:60]!r} ({media})")
             continue
+        if method_for(platform) == "browser" and browser_used:
+            # nghỉ giữa các lần mở trình duyệt, không thao tác liên tục như máy
+            gap = random.uniform(30, 120) * float(os.getenv("BROWSER_SPEED", "1"))
+            print(f"[nghỉ] {int(gap)} giây trước bài tiếp theo")
+            time.sleep(gap)
         try:
-            if platform not in publishers:
-                publishers[platform] = PUBLISHERS[platform]()
-            result = publishers[platform].publish(post)
+            browser_used = browser_used or method_for(platform) == "browser"
+            result = get_publisher(platform).publish(post)
             result["at"] = now().isoformat()
             state.record(post.id, platform, result)
             print(f"[xong] {label}: {result.get('url') or result.get('status') or result['id']}")
@@ -80,6 +94,19 @@ def cmd_rss(_args) -> None:
     for folder in created:
         print(f"[nháp] {folder.name}")
     print(f"Tạo {len(created)} bản nháp. Sửa nội dung rồi đổi status thành approved để đăng.")
+
+
+LOGIN_URLS = {
+    "facebook": "https://www.facebook.com/login",
+    "instagram": "https://www.instagram.com/accounts/login/",
+    "x": "https://x.com/i/flow/login",
+    "tiktok": "https://www.tiktok.com/login",
+}
+
+
+def cmd_login(args) -> None:
+    from .browser import login
+    login(args.platform, LOGIN_URLS[args.platform])
 
 
 def cmd_tiktok_login(args) -> None:
@@ -116,6 +143,9 @@ def main() -> int:
             p.add_argument("--every", type=int, default=300)
         p.set_defaults(fn=fn)
     sub.add_parser("rss").set_defaults(fn=cmd_rss)
+    p = sub.add_parser("login")
+    p.add_argument("platform", choices=list(LOGIN_URLS))
+    p.set_defaults(fn=cmd_login)
     p = sub.add_parser("tiktok-login")
     p.add_argument("--direct", action="store_true", help="xin quyền video.publish")
     p.set_defaults(fn=cmd_tiktok_login)

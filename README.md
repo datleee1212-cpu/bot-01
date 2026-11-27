@@ -1,10 +1,25 @@
 # bot-01: Bot tự động đăng bài mạng xã hội
 
-Bot đăng bài theo lịch lên **Facebook Page, Instagram, X (Twitter) và TikTok**, chỉ dùng API chính thức của từng nền tảng (không giả lập trình duyệt, tránh bị khoá tài khoản).
+Bot đăng bài theo lịch lên **Facebook, Instagram, X (Twitter) và TikTok**. Có hai cách đăng:
+
+- **Trình duyệt (mặc định, không cần khoá API)**: bot tự mở trình duyệt bằng tài khoản bạn đã đăng nhập, bấm và gõ như người dùng.
+- **API chính thức (dự phòng)**: an toàn hơn cho tài khoản nhưng phải xin khoá API (xem cuối trang).
 
 Nguồn nội dung:
 - **File trên máy bạn**: mỗi bài là một thư mục trong `posts/` (nội dung + ảnh/video).
 - **Đăng lại tin**: lấy tin từ RSS thành **bản nháp** (tiêu đề + link nguồn). Bạn viết tóm tắt bằng lời của mình rồi duyệt. Bot không chép nguyên văn bài hay ảnh của người khác, để tránh vi phạm bản quyền.
+
+## ⚠️ Rủi ro khi dùng chế độ trình duyệt
+
+Điều khoản của cả 4 nền tảng **không cho phép tự động hoá ngoài API chính thức**. Tài khoản có thể bị yêu cầu xác minh, bị hạn chế tính năng hoặc bị khoá. Để giảm rủi ro, bot:
+
+- đăng ít và giãn cách (mặc định tối đa 5 bài Facebook, 3 Instagram, 8 X, 2 TikTok mỗi ngày, cách nhau ít nhất 30 phút, nghỉ 30–120 giây giữa các nền tảng);
+- gõ và bấm với tốc độ như người, hiện cửa sổ trình duyệt để bạn theo dõi;
+- **không vượt captcha hay kiểm tra bảo mật**: gặp là dừng, chờ bạn tự xử lý trong cửa sổ trình duyệt (mặc định 5 phút), quá hạn thì bỏ qua bài đó.
+
+Nên dùng với tài khoản bạn chấp nhận được rủi ro, và chuyển sang `POST_METHOD=api` cho nền tảng nào quan trọng.
+
+Giao diện các trang thay đổi thường xuyên, nên đôi khi bot sẽ không tìm thấy nút và báo lỗi `Không tìm thấy phần tử`. Khi đó chỉ cần cập nhật selector trong `bot/browser/<nền tảng>.py`.
 
 ## Cài đặt
 
@@ -12,8 +27,20 @@ Nguồn nội dung:
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env    # rồi điền khoá API (xem phần bên dưới)
+python -m playwright install chromium
+cp .env.example .env
 ```
+
+Đăng nhập một lần cho từng nền tảng (cửa sổ trình duyệt sẽ mở, bạn tự đăng nhập, xong bấm Enter):
+
+```bash
+python -m bot login facebook
+python -m bot login instagram
+python -m bot login x
+python -m bot login tiktok
+```
+
+Phiên đăng nhập lưu trong thư mục `.profiles/` trên máy bạn (không đưa lên GitHub). Với Facebook, đặt `FB_TARGET_URL` trong `.env` nếu muốn đăng lên Page hoặc group thay vì bảng tin của bạn.
 
 ## Soạn bài
 
@@ -32,10 +59,10 @@ text_x: Bản ngắn riêng cho X           # tuỳ chọn, có text_facebook, t
 
 | Nền tảng | Chữ | Ảnh | Video | Ghi chú |
 |---|---|---|---|---|
-| Facebook Page | ✓ | ✓ (nhiều ảnh) | ✓ | Tải file trực tiếp từ máy |
-| Instagram | ✗ | ✓ JPEG, carousel ≤ 10 | ✓ Reels | Ảnh cần link công khai (xem dưới) |
+| Facebook | ✓ | ✓ nhiều ảnh | ✓ | Trình duyệt: trang cá nhân, Page hoặc group. API: chỉ Page |
+| Instagram | ✗ | ✓ carousel ≤ 10 | ✓ Reels | Bắt buộc có ảnh/video |
 | X | ✓ | ✓ ≤ 4 ảnh | ✓ 1 video | Tối đa 280 ký tự, bot tự cắt |
-| TikTok | ✗ | chưa hỗ trợ | ✓ | Mặc định vào hộp nháp TikTok |
+| TikTok | ✗ | chưa hỗ trợ | ✓ | Trình duyệt: đăng thẳng. API: vào hộp nháp |
 
 ## Chạy
 
@@ -48,11 +75,13 @@ python -m bot loop              # chạy liên tục, kiểm tra mỗi 5 phút
 python -m bot rss               # lấy tin từ config/feeds.yaml thành bản nháp
 ```
 
-Bot ghi lại bài đã đăng trong `state.json` nên chạy lại nhiều lần không bị đăng trùng. Nếu một nền tảng lỗi, lần chạy sau bot chỉ thử lại nền tảng đó.
+Bài vượt giới hạn trong ngày hoặc chưa đủ giãn cách sẽ được ghi `[hoãn]` và tự đăng ở lần chạy sau. Bot ghi lại bài đã đăng trong `state.json` nên chạy lại nhiều lần không bị đăng trùng. Nếu một nền tảng lỗi, lần chạy sau bot chỉ thử lại nền tảng đó.
 
 Để bot tự chạy: để `python -m bot loop` mở trên máy, hoặc dùng **Task Scheduler** (Windows) / **cron** (macOS, Linux) chạy `python -m bot run` mỗi 15 phút.
 
-## Lấy khoá API
+## Dự phòng: dùng API chính thức
+
+Đặt `POST_METHOD=api` (hoặc riêng từng nền tảng, ví dụ `POST_METHOD_X=api`) và điền khoá bên dưới. Chi tiết về chi phí, giới hạn và điều kiện duyệt của từng nền tảng có trong báo cáo nghiên cứu đi kèm dự án.
 
 ### Facebook Page + Instagram (miễn phí)
 1. Cần một **Facebook Page** và tài khoản **Instagram chuyên nghiệp** (Business/Creator) liên kết với Page.
@@ -89,10 +118,12 @@ bot/
   __main__.py      dòng lệnh
   store.py         hàng đợi bài và trạng thái đã đăng
   rss.py           lấy tin thành bản nháp
+  pacing.py        giới hạn bài/ngày và giãn cách
+  browser/         đăng bằng trình duyệt: facebook.py, instagram.py, x.py, tiktok.py
   media.py         tạo link công khai cho media
-  platforms/       facebook.py, instagram.py, x.py, tiktok.py
+  platforms/       đăng bằng API: facebook.py, instagram.py, x.py, tiktok.py
 posts/             bài viết của bạn
 config/feeds.yaml  danh sách nguồn RSS
 ```
 
-Chạy test: `pip install pytest && python -m pytest -q`
+Chạy test: `pip install pytest && python -m pytest -q` (test trình duyệt chạy trên trang giả lập, không vào mạng xã hội thật)
